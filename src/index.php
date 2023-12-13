@@ -20,14 +20,11 @@
  * 3. Require the google/apiclient library
  *    $ composer require google/apiclient:~2.0
  */
-
-define('BASE_DIR', __DIR__ . '/../');
-
-if (!file_exists(BASE_DIR. '/vendor/autoload.php')) {
-  throw new \Exception('please run "composer require google/apiclient:~2.0" in "' . BASE_DIR .'"');
+if (!file_exists(__DIR__ . '/../vendor/autoload.php')) {
+  throw new \Exception('please run "composer require google/apiclient:~2.0" in "' . __DIR__ .'"');
 }
 
-require_once BASE_DIR . '/vendor/autoload.php';
+require_once __DIR__ . '/../vendor/autoload.php';
 session_start();
 
 $htmlBody = <<<END
@@ -78,11 +75,9 @@ END;
 $OAUTH2_CLIENT_ID = $_ENV['OAUTH2_CLIENT_ID'];
 $OAUTH2_CLIENT_SECRET = $_ENV['OAUTH2_CLIENT_SECRET'];
 
-
 $client = new Google_Client();
 $client->setClientId($OAUTH2_CLIENT_ID);
 $client->setClientSecret($OAUTH2_CLIENT_SECRET);
-
 /*
  * This OAuth 2.0 access scope allows for full read/write access to the
  * authenticated user's account and requires requests to use an SSL connection.
@@ -93,11 +88,14 @@ $redirect = filter_var('http://' . $_SERVER['HTTP_HOST'] . $_SERVER['PHP_SELF'],
 $client->setRedirectUri($redirect);
 
 // Define an object that will be used to make all API requests.
-$youtube = new Google\Service\YouTube($client);
+$youtube = new Google_Service_YouTube($client);
 
 // Check if an auth token exists for the required scopes
 $tokenSessionKey = 'token-' . $client->prepareScopes();
 if (isset($_GET['code'])) {
+  echo(strval($_SESSION['state']));
+  echo("   ");
+  echo(strval($_GET['state']));
   if (strval($_SESSION['state']) !== strval($_GET['state'])) {
     die('The session state did not match.');
   }
@@ -124,16 +122,16 @@ if ($client->getAccessToken()) {
     try {
       switch ($_POST['action']) {
         case 'upload':
-        //   uploadCaption($youtube, $client, $videoId, $captionFile,
-        //       $captionName, $captionLanguage, $htmlBody);
-        //   break;
+          uploadCaption($youtube, $client, $videoId, $captionFile,
+              $captionName, $captionLanguage, $htmlBody);
+          break;
         case 'list':
           $captions = listCaptions($youtube, $videoId, $htmlBody);
           break;
         case 'update':
-        //   updateCaption($youtube, $client, $captionId, $htmlBody, $captionFile);
-        //   break;
-        // case 'download':
+          updateCaption($youtube, $client, $captionId, $htmlBody, $captionFile);
+          break;
+        case 'download':
           downloadCaption($youtube, $captionId, $htmlBody);
           break;
         case 'delete':
@@ -141,8 +139,8 @@ if ($client->getAccessToken()) {
           break;
         default:
           # All the available methods are used in sequence just for the sake of an example.
-        //   uploadCaption($youtube, $client, $videoId, $captionFile,
-        //       $captionName, $captionLanguage, $htmlBody);
+          uploadCaption($youtube, $client, $videoId, $captionFile,
+              $captionName, $captionLanguage, $htmlBody);
 
           $captions = listCaptions($youtube, $videoId, $htmlBody);
 
@@ -150,7 +148,7 @@ if ($client->getAccessToken()) {
             $htmlBody .= "<h3>Can't get video caption tracks.</h3>";
           } else {
             $firstCaptionId = $captions[0]['id'];
-            // updateCaption($youtube, $client, $firstCaptionId, $htmlBody, null);
+            updateCaption($youtube, $client, $firstCaptionId, $htmlBody, null);
             downloadCaption($youtube, $firstCaptionId, $htmlBody);
             deleteCaption($youtube, $firstCaptionId, $htmlBody);
         }
@@ -189,7 +187,7 @@ END;
  * Uploads a caption track in draft status that matches the API request parameters.
  * (captions.insert)
  *
- * @param Google\Service\YouTube $youtube YouTube service object.
+ * @param Google_Service_YouTube $youtube YouTube service object.
  * @param Google_Client $client Google client.
  * @param $videoId the YouTube video ID of the video for which the API should
  *  return caption tracks.
@@ -198,73 +196,73 @@ END;
  * @param $captionFile caption track binary file.
  * @param $htmlBody html body.
  */
-// function uploadCaption(Google\Service\YouTube $youtube, Google_Client $client, $videoId,
-//     $captionFile, $captionName, $captionLanguage, &$htmlBody) {
-//     # Insert a video caption.
-//     # Create a caption snippet with video id, language, name and draft status.
-//     $captionSnippet = new Google\Service\YouTube\CaptionSnippet();
-//     $captionSnippet->setVideoId($videoId);
-//     $captionSnippet->setLanguage($captionLanguage);
-//     $captionSnippet->setName($captionName);
+function uploadCaption(Google_Service_YouTube $youtube, Google_Client $client, $videoId,
+    $captionFile, $captionName, $captionLanguage, &$htmlBody) {
+    # Insert a video caption.
+    # Create a caption snippet with video id, language, name and draft status.
+    $captionSnippet = new Google_Service_YouTube_CaptionSnippet();
+    $captionSnippet->setVideoId($videoId);
+    $captionSnippet->setLanguage($captionLanguage);
+    $captionSnippet->setName($captionName);
 
-//     # Create a caption with snippet.
-//     $caption = new Google\Service\YouTube\Caption();
-//     $caption->setSnippet($captionSnippet);
+    # Create a caption with snippet.
+    $caption = new Google_Service_YouTube_Caption();
+    $caption->setSnippet($captionSnippet);
 
-//     // Specify the size of each chunk of data, in bytes. Set a higher value for
-//     // reliable connection as fewer chunks lead to faster uploads. Set a lower
-//     // value for better recovery on less reliable connections.
-//     $chunkSizeBytes = 1 * 1024 * 1024;
+    // Specify the size of each chunk of data, in bytes. Set a higher value for
+    // reliable connection as fewer chunks lead to faster uploads. Set a lower
+    // value for better recovery on less reliable connections.
+    $chunkSizeBytes = 1 * 1024 * 1024;
 
-//     // Setting the defer flag to true tells the client to return a request which can be called
-//     // with ->execute(); instead of making the API call immediately.
-//     $client->setDefer(true);
+    // Setting the defer flag to true tells the client to return a request which can be called
+    // with ->execute(); instead of making the API call immediately.
+    $client->setDefer(true);
 
-//     // Create a request for the API's captions.insert method to create and upload a caption.
-//     $insertRequest = $youtube->captions->insert("snippet", $caption);
+    // Create a request for the API's captions.insert method to create and upload a caption.
+    $insertRequest = $youtube->captions->insert("snippet", $caption);
 
-//     // Create a MediaFileUpload object for resumable uploads.
-//     $media = new Google\Http\MediaFileUpload(
-//         $client,
-//         $insertRequest,
-//         '*/*',
-//         null,
-//         true,
-//         $chunkSizeBytes
-//     );
-//     $media->setFileSize(filesize($captionFile));
+    // Create a MediaFileUpload object for resumable uploads.
+    $media = new Google_Http_MediaFileUpload(
+        $client,
+        $insertRequest,
+        '*/*',
+        null,
+        true,
+        $chunkSizeBytes
+    );
+    $media->setFileSize(filesize($captionFile));
 
 
-//     // Read the caption file and upload it chunk by chunk.
-//     $status = false;
-//     $handle = fopen($captionFile, "rb");
-//     while (!$status && !feof($handle)) {
-//       $chunk = fread($handle, $chunkSizeBytes);
-//       $status = $media->nextChunk($chunk);
-//     }
+    // Read the caption file and upload it chunk by chunk.
+    $status = false;
+    $handle = fopen($captionFile, "rb");
+    while (!$status && !feof($handle)) {
+      $chunk = fread($handle, $chunkSizeBytes);
+      $status = $media->nextChunk($chunk);
+    }
 
-//     fclose($handle);
+    fclose($handle);
 
-//     // If you want to make other calls after the file upload, set setDefer back to false
-//     $client->setDefer(false);
+    // If you want to make other calls after the file upload, set setDefer back to false
+    $client->setDefer(false);
 
-//     $htmlBody .= "<h2>Inserted video caption track for</h2><ul>";
-//     $captionSnippet = $status['snippet'];
-//     $htmlBody .= sprintf('<li>%s(%s) in %s language, %s status.</li>',
-//         $captionSnippet['name'], $status['id'], $captionSnippet['language'],
-//         $captionSnippet['status']);
-//     $htmlBody .= '</ul>';
-// }
+    $htmlBody .= "<h2>Inserted video caption track for</h2><ul>";
+    $captionSnippet = $status['snippet'];
+    $htmlBody .= sprintf('<li>%s(%s) in %s language, %s status.</li>',
+        $captionSnippet['name'], $status['id'], $captionSnippet['language'],
+        $captionSnippet['status']);
+    $htmlBody .= '</ul>';
+}
 
 /**
  * Returns a list of caption tracks. (captions.listCaptions)
  *
- * @param Google\Service\YouTube $youtube YouTube service object.
+ * @param Google_Service_YouTube $youtube YouTube service object.
  * @param string $videoId The videoId parameter instructs the API to return the
  * caption tracks for the video specified by the video id.
  * @param $htmlBody - html body.
  */
-function listCaptions(Google\Service\YouTube $youtube, $videoId, &$htmlBody) {
+function listCaptions(Google_Service_YouTube $youtube, $videoId, &$htmlBody) {
   // Call the YouTube Data API's captions.list method to retrieve video caption tracks.
   $captions = $youtube->captions->listCaptions("snippet", $videoId);
 
@@ -282,7 +280,7 @@ function listCaptions(Google\Service\YouTube $youtube, $videoId, &$htmlBody) {
  * Updates a caption track's draft status to publish it.
  * Updates the track with a new binary file as well if it is present.  (captions.update)
  *
- * @param Google\Service\YouTube $youtube YouTube service object.
+ * @param Google_Service_YouTube $youtube YouTube service object.
  * @param Google_Client $client Google client.
  * @param string $captionId The id parameter specifies the caption ID for the resource
  * that is being updated. In a caption resource, the id property specifies the
@@ -290,83 +288,83 @@ function listCaptions(Google\Service\YouTube $youtube, $videoId, &$htmlBody) {
  * @param $htmlBody - html body.
  * @param $captionFile caption track binary file.
  */
-// function updateCaption(Google\Service\YouTube $youtube, Google_Client $client,
-//     $captionId, &$htmlBody, $captionFile) {
-//     // Modify caption's isDraft property to unpublish a caption track.
-//     $updateCaptionSnippet = new Google\Service\YouTube\CaptionSnippet();
-//     $updateCaptionSnippet->setIsDraft(true);
+function updateCaption(Google_Service_YouTube $youtube, Google_Client $client,
+    $captionId, &$htmlBody, $captionFile) {
+    // Modify caption's isDraft property to unpublish a caption track.
+    $updateCaptionSnippet = new Google_Service_YouTube_CaptionSnippet();
+    $updateCaptionSnippet->setIsDraft(true);
 
-//     # Create a caption with snippet.
-//     $updateCaption = new Google\Service\YouTube\Caption();
-//     $updateCaption->setSnippet($updateCaptionSnippet);
-//     $updateCaption->setId($captionId);
+    # Create a caption with snippet.
+    $updateCaption = new Google_Service_YouTube_Caption();
+    $updateCaption->setSnippet($updateCaptionSnippet);
+    $updateCaption->setId($captionId);
 
-//     if ($captionFile == '')
-//     {
-//       // Call the YouTube Data API's captions.update method to update an existing caption track.
-//       $captionUpdateResponse = $youtube->captions->update("snippet", $updateCaption);
+    if ($captionFile == '')
+    {
+      // Call the YouTube Data API's captions.update method to update an existing caption track.
+      $captionUpdateResponse = $youtube->captions->update("snippet", $updateCaption);
 
-//       $htmlBody .= "<h2>Updated caption track</h2><ul>";
-//       $htmlBody .= sprintf('<li>%s(%s) draft status: %s</li>',
-//           $captionUpdateResponse['snippet']['name'],
-//       $captionUpdateResponse['id'],  $captionUpdateResponse['snippet']['isDraft']);
-//       $htmlBody .= '</ul>';
-//     } else {
-//       // Specify the size of each chunk of data, in bytes. Set a higher value for
-//       // reliable connection as fewer chunks lead to faster uploads. Set a lower
-//       // value for better recovery on less reliable connections.
-//       $chunkSizeBytes = 1 * 1024 * 1024;
+      $htmlBody .= "<h2>Updated caption track</h2><ul>";
+      $htmlBody .= sprintf('<li>%s(%s) draft status: %s</li>',
+          $captionUpdateResponse['snippet']['name'],
+      $captionUpdateResponse['id'],  $captionUpdateResponse['snippet']['isDraft']);
+      $htmlBody .= '</ul>';
+    } else {
+      // Specify the size of each chunk of data, in bytes. Set a higher value for
+      // reliable connection as fewer chunks lead to faster uploads. Set a lower
+      // value for better recovery on less reliable connections.
+      $chunkSizeBytes = 1 * 1024 * 1024;
 
-//       // Setting the defer flag to true tells the client to return a request which can be called
-//       // with ->execute(); instead of making the API call immediately.
-//       $client->setDefer(true);
+      // Setting the defer flag to true tells the client to return a request which can be called
+      // with ->execute(); instead of making the API call immediately.
+      $client->setDefer(true);
 
-//       // Create a request for the YouTube Data API's captions.update method to update
-//       // an existing caption track.
-//       $captionUpdateRequest = $youtube->captions->update("snippet", $updateCaption);
+      // Create a request for the YouTube Data API's captions.update method to update
+      // an existing caption track.
+      $captionUpdateRequest = $youtube->captions->update("snippet", $updateCaption);
 
-//       // Create a MediaFileUpload object for resumable uploads.
-//       $media = new Google\Http\MediaFileUpload(
-//           $client,
-//           $captionUpdateRequest,
-//           '*/*',
-//           null,
-//           true,
-//           $chunkSizeBytes
-//       );
-//       $media->setFileSize(filesize($captionFile));
+      // Create a MediaFileUpload object for resumable uploads.
+      $media = new Google_Http_MediaFileUpload(
+          $client,
+          $captionUpdateRequest,
+          '*/*',
+          null,
+          true,
+          $chunkSizeBytes
+      );
+      $media->setFileSize(filesize($captionFile));
 
-//       // Read the caption file and upload it chunk by chunk.
-//       $status = false;
-//       $handle = fopen($captionFile, "rb");
-//       while (!$status && !feof($handle)) {
-//         $chunk = fread($handle, $chunkSizeBytes);
-//         $status = $media->nextChunk($chunk);
-//       }
+      // Read the caption file and upload it chunk by chunk.
+      $status = false;
+      $handle = fopen($captionFile, "rb");
+      while (!$status && !feof($handle)) {
+        $chunk = fread($handle, $chunkSizeBytes);
+        $status = $media->nextChunk($chunk);
+      }
 
-//       fclose($handle);
+      fclose($handle);
 
-//       // If you want to make other calls after the file upload, set setDefer back to false
-//       $client->setDefer(false);
+      // If you want to make other calls after the file upload, set setDefer back to false
+      $client->setDefer(false);
 
-//       $htmlBody .= "<h2>Updated caption track</h2><ul>";
-//       $htmlBody .= sprintf('<li>%s(%s) draft status: %s and updated the track with
-//           the new uploaded file.</li>',
-//           $status['snippet']['name'], $status['id'],  $status['snippet']['isDraft']);
-//       $htmlBody .= '</ul>';
-//     }
-// }
+      $htmlBody .= "<h2>Updated caption track</h2><ul>";
+      $htmlBody .= sprintf('<li>%s(%s) draft status: %s and updated the track with
+          the new uploaded file.</li>',
+          $status['snippet']['name'], $status['id'],  $status['snippet']['isDraft']);
+      $htmlBody .= '</ul>';
+    }
+}
 
 /**
  * Downloads a caption track for a YouTube video. (captions.download)
  *
- * @param Google\Service\YouTube $youtube YouTube service object.
+ * @param Google_Service_YouTube $youtube YouTube service object.
  * @param string $captionId The id parameter specifies the caption ID for the resource
  * that is being downloaded. In a caption resource, the id property specifies the
  * caption track's ID.
  * @param $htmlBody - html body.
  */
-function downloadCaption(Google\Service\YouTube $youtube, $captionId, &$htmlBody) {
+function downloadCaption(Google_Service_YouTube $youtube, $captionId, &$htmlBody) {
     // Call the YouTube Data API's captions.download method to download an existing caption.
     $captionResouce = $youtube->captions->download($captionId, array(
         'tfmt' => "srt",
@@ -382,13 +380,13 @@ function downloadCaption(Google\Service\YouTube $youtube, $captionId, &$htmlBody
 /**
  * Deletes a caption track for a YouTube video. (captions.delete)
  *
- * @param Google\Service\YouTube $youtube YouTube service object.
+ * @param Google_Service_YouTube $youtube YouTube service object.
  * @param string $captionId The id parameter specifies the caption ID for the resource
  * that is being deleted. In a caption resource, the id property specifies the
  * caption track's ID.
  * @param $htmlBody - html body.
  */
-function deleteCaption(Google\Service\YouTube $youtube, $captionId, &$htmlBody) {
+function deleteCaption(Google_Service_YouTube $youtube, $captionId, &$htmlBody) {
     // Call the YouTube Data API's captions.delete method to delete a caption.
     $youtube->captions->delete($captionId);
 

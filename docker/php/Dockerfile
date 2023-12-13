@@ -20,3 +20,6 @@ WORKDIR /var/www
 
 # php컴포저로 필요 라이브러리 설치
 RUN composer require google/apiclient:~2.0
+
+# 라이브러리와 클래스들을 자동으로 로드하기 위한 autoload.php 파일을 생성
+RUN composer dump-autoload
